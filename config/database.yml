@@ -96,3 +96,4 @@ production:
   cable:
     database: demo_ruby_project_production_cable
     migrations_paths: db/cable_migrate
+
