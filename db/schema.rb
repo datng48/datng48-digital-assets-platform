@@ -10,7 +10,9 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_05_13_031021) do
+ActiveRecord::Schema[8.0].define(version: 2025_05_13_091954) do
+  create_schema "digital_assets"
+
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -22,7 +24,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_05_13_031021) do
     t.bigint "user_id", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["user_id"], name: "index_assets_on_user_id"
+    t.index ["user_id"], name: "user_assets_idx"
   end
 
   create_table "purchases", force: :cascade do |t|
@@ -31,19 +33,19 @@ ActiveRecord::Schema[8.0].define(version: 2025_05_13_031021) do
     t.decimal "amount"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["asset_id"], name: "index_purchases_on_asset_id"
-    t.index ["user_id"], name: "index_purchases_on_user_id"
+    t.index ["asset_id"], name: "asset_purchases_idx"
+    t.index ["user_id"], name: "user_purchases_idx"
   end
 
   create_table "users", force: :cascade do |t|
     t.string "email"
     t.string "name"
-    t.string "password_digest"
+    t.string "encrypted_password"
     t.integer "role"
+    t.decimal "total_earnings"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.decimal "total_earnings", precision: 10, scale: 2, default: "0.0", null: false
-    t.index ["email"], name: "index_users_on_email", unique: true
+    t.index ["email"], name: "email_unique_idx", unique: true
   end
 
   add_foreign_key "assets", "users"

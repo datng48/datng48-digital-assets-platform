@@ -32,6 +32,7 @@ export const assets = {
 export const purchases = {
   list: () => api.get('/purchases'),
   create: (data: any) => api.post('/purchases', data),
+  purchased: () => api.get('/purchased_assets'),
 };
 
 export const earnings = {

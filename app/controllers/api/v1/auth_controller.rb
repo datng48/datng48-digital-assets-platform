@@ -4,17 +4,17 @@ module Api
       skip_before_action :authenticate_user!, only: [:register, :login]
 
       def register
-        # Check admin registration first if role is admin
+        # check if admin
         if params[:user][:role] == 'admin'
           admin_code = params[:user][:admin_code]
           env_admin_code = ENV['ADMIN_REGISTRATION_CODE'] || '1234'
           
           if admin_code != env_admin_code
-            return render json: { error: 'Invalid admin registration code' }, status: :unauthorized
+            return render json: { error: 'Wrong admin code' }, status: :unauthorized
           end
         end
 
-        # Remove admin_code from params before creating user
+        # if not admin then remove admin code from payload
         user_data = user_params.except(:admin_code)
         user = User.new(user_data)
 
@@ -44,7 +44,7 @@ module Api
       private
 
       def user_params
-        params.require(:user).permit(:email, :password, :name, :role, :admin_code)
+        params.require(:user).permit(:email, :password, :password_confirmation, :name, :role, :admin_code)
       end
 
       def generate_token(user)

@@ -1,4 +1,6 @@
 class Asset < ApplicationRecord
+  self.table_name = "digital_assets.assets"
+  
   belongs_to :user
   has_many :purchases, dependent: :destroy
   has_many :customers, through: :purchases, source: :user
@@ -9,7 +11,6 @@ class Asset < ApplicationRecord
   validates :price, presence: true, numericality: { greater_than_or_equal_to: 0 }
 
   def self.bulk_import(user, json_data)
-    # Parse JSON if it's a string
     assets_data = json_data.is_a?(String) ? JSON.parse(json_data) : json_data
     
     Asset.transaction do

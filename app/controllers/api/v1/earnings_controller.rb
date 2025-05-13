@@ -6,7 +6,7 @@ module Api
       def creator_earnings
         Rails.logger.info "Fetching creator earnings"
         
-        creators = User.where(role: 1)  # Explicitly get users with role = 1 (creators)
+        creators = User.where(role: 1)
         Rails.logger.info "Found #{creators.count} creators"
         
         earnings = creators.map do |creator|

@@ -13,21 +13,19 @@ module Api
       private
 
       def authenticate_user!
-        unless current_user
-          render json: { error: 'You need to sign in before continuing' }, status: :unauthorized
+        header = request.headers['Authorization']
+        token = header.split(' ').last if header
+        
+        begin
+          decoded = JWT.decode(token, Rails.application.credentials.secret_key_base, true, algorithm: 'HS256')
+          @current_user = User.find(decoded[0]['user_id'])
+        rescue JWT::DecodeError, ActiveRecord::RecordNotFound => e
+          render json: { error: 'Unauthorized' }, status: :unauthorized
         end
       end
 
       def current_user
-        @current_user ||= begin
-          token = request.headers['Authorization']&.split(' ')&.last
-          return nil unless token
-
-          decoded_token = JWT.decode(token, Rails.application.credentials.secret_key_base, true, algorithm: 'HS256')
-          User.find_by(id: decoded_token[0]['user_id'])
-        rescue JWT::DecodeError
-          nil
-        end
+        @current_user
       end
 
       def not_found(exception)

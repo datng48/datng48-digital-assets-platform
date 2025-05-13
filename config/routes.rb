@@ -8,22 +8,22 @@ Rails.application.routes.draw do
       post '/login', to: 'auth#login'
       get '/me', to: 'auth#me'
 
-      # Assets routes
+      # import in bulk
       resources :assets do
         collection do
           post :bulk_import
         end
       end
 
-      # Purchases routes
       resources :purchases, only: [:index, :create]
 
-      # Admin routes
       namespace :admin do
         get '/creators/earnings', to: 'creators#earnings'
       end
 
       get '/creator_earnings', to: 'earnings#creator_earnings'
+
+      get '/purchased_assets', to: 'purchases#purchased_assets'
     end
   end
 end

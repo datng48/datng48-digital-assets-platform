@@ -3,12 +3,23 @@ module Api
     class AssetsController < BaseController
       skip_before_action :authenticate_user!, only: [:index, :show]
       before_action :set_asset, only: [:show, :update, :destroy]
-      before_action :ensure_creator!, only: [:create, :bulk_import]
-      before_action :ensure_owner!, only: [:update, :destroy]
+      before_action :authorize_creator!, only: [:create, :update, :destroy, :bulk_import]
 
       def index
-        assets = Asset.includes(:user)
-        render json: assets, each_serializer: AssetSerializer
+        all_assets = Asset.all
+        
+        if current_user
+          purchased_asset_ids = current_user.purchases.pluck(:asset_id)
+          assets_with_purchase_info = all_assets.map do |asset|
+            asset_data = AssetSerializer.new(asset).as_json
+            asset_data[:purchased] = purchased_asset_ids.include?(asset.id)
+            asset_data
+          end
+          
+          render json: assets_with_purchase_info
+        else
+          render json: all_assets, each_serializer: AssetSerializer
+        end
       end
 
       def show
@@ -16,7 +27,7 @@ module Api
       end
 
       def create
-        asset = current_user.assets.build(asset_params)
+        asset = current_user.assets.new(asset_params)
 
         if asset.save
           render json: asset, serializer: AssetSerializer, status: :created
@@ -57,15 +68,9 @@ module Api
         params.require(:asset).permit(:title, :description, :file_url, :price)
       end
 
-      def ensure_creator!
-        unless current_user.creator?
-          render json: { error: 'Only creators can perform this action' }, status: :forbidden
-        end
-      end
-
-      def ensure_owner!
-        unless @asset.user_id == current_user&.id
-          render json: { error: 'You can only modify your own assets' }, status: :forbidden
+      def authorize_creator!
+        unless current_user.creator? || current_user.admin?
+          render json: { error: 'Only creators can manage assets' }, status: :forbidden
         end
       end
     end

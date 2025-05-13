@@ -46,7 +46,6 @@ function App() {
 
   useEffect(() => {
     loadAssets();
-    // Check if user is already logged in
     const token = localStorage.getItem('token');
     const role = localStorage.getItem('userRole');
     const name = localStorage.getItem('userName');
@@ -64,8 +63,34 @@ function App() {
 
   const loadAssets = async () => {
     try {
+      setLoading(true);
+      
+      const token = localStorage.getItem('token');
+      const isUserLoggedIn = !!token;
+      
       const response = await assets.list();
-      setAssetList(response.data);
+      let assetsList = response.data;
+      
+      if (isUserLoggedIn) {
+        try {
+          const purchasedResponse = await purchases.purchased();
+          const purchasedAssets = purchasedResponse.data;
+          
+          const purchasedAssetIds = purchasedAssets.map((asset: Asset) => asset.id);
+          
+          assetsList = assetsList.map((asset: Asset) => {
+            const isPurchased = purchasedAssetIds.includes(asset.id);
+            if (isPurchased) {
+              return { ...asset, purchased: true };
+            }
+            return asset;
+          });
+        } catch (err) {
+          console.error('Error fetching purchased assets:', err);
+        }
+      }
+      
+      setAssetList(assetsList);
     } catch (error) {
       message.error('Failed to load assets');
       console.error(error);
@@ -77,7 +102,6 @@ function App() {
   const loadCreatorEarnings = async () => {
     try {
       const response = await earnings.getCreatorEarnings();
-      console.log('Creator earnings response:', response.data);  // Add logging
       setCreatorEarnings(response.data);
     } catch (error) {
       console.error('Failed to load earnings:', error);
@@ -89,7 +113,6 @@ function App() {
     try {
       const response = await auth.login(values);
       const { token, user } = response.data;
-      // Store complete user info
       localStorage.setItem('token', token);
       localStorage.setItem('userRole', user.role);
       localStorage.setItem('userName', user.name);
@@ -100,7 +123,7 @@ function App() {
       setIsLoggedIn(true);
       setAuthModalVisible(false);
       message.success('Logged in successfully');
-      loadAssets(); // Reload assets after login
+      loadAssets();
     } catch (error) {
       message.error('Login failed');
       console.error(error);
@@ -110,21 +133,18 @@ function App() {
   const handleRegister = async (values: RegisterForm) => {
     try {
       if (values.password !== values.password_confirmation) {
-        message.error('Passwords do not match');
+        message.error('Password do not match');
         return;
       }
       
-      // Remove password_confirmation before sending to API
       const { password_confirmation, ...registrationData } = values;
 
-      // If admin code is provided, override the role to admin
       if (registrationData.admin_code) {
         registrationData.role = 'admin';
       }
 
       const response = await auth.register(registrationData);
       const { token, user } = response.data;
-      // Store complete user info
       localStorage.setItem('token', token);
       localStorage.setItem('userRole', user.role);
       localStorage.setItem('userName', user.name);
@@ -137,7 +157,7 @@ function App() {
       message.success('Registered successfully');
     } catch (error: any) {
       if (error.response?.status === 400) {
-        message.error(error.response.data.error || 'Registration failed. Please check your information.');
+        message.error(error.response.data.error);
       } else if (error.response?.status === 422) {
         const errors = error.response.data.errors;
         if (Array.isArray(errors)) {
@@ -148,7 +168,6 @@ function App() {
       } else {
         message.error('Registration failed. Please try again.');
       }
-      console.error(error);
     }
   };
 
@@ -161,20 +180,18 @@ function App() {
     setUserName('');
     setUserRole('');
     setIsLoggedIn(false);
-    loadAssets(); // Reload assets after logout
+    loadAssets();
     message.success('Logged out successfully');
   };
 
   const handleBulkUpload = async (file: File) => {
     try {
-      // Read the file content
       const fileContent = await new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onload = (e) => resolve(e.target?.result as string);
         reader.readAsText(file);
       });
 
-      // Send the JSON content directly
       await assets.bulkImport({ assets: fileContent });
       message.success('Assets imported successfully');
       loadAssets();
@@ -182,7 +199,7 @@ function App() {
       message.error('Failed to import assets');
       console.error(error);
     }
-    return false; // Prevent default upload behavior
+    return false; 
   };
 
   const handlePurchase = async (asset: Asset) => {
@@ -192,13 +209,13 @@ function App() {
     }
 
     try {
-      // Create a purchase record
-      await purchases.create({ asset_id: asset.id });
+      const response = await purchases.create({ asset_id: asset.id });
       
-      // Update local state
+      const { asset: purchasedAsset } = response.data;
+      
       setAssetList(prevList => 
         prevList.map(item => 
-          item.id === asset.id 
+          item.id === purchasedAsset.id 
             ? { ...item, purchased: true }
             : item
         )
@@ -209,17 +226,38 @@ function App() {
       setSelectedAsset({ ...asset, purchased: true });
       message.success('Purchase successful!');
 
-      // If user is admin, reload earnings data
+      loadAssets();
+      
       if (userRole === 'admin') {
         loadCreatorEarnings();
       }
-    } catch (error) {
-      console.error('Purchase failed:', error);
-      message.error('Failed to complete purchase. Please try again.');
+    } catch (error: any) {
+      
+      if (error.response?.data?.asset?.purchased) {
+        const { asset: purchasedAsset } = error.response.data;
+        setAssetList(prevList => 
+          prevList.map(item => 
+            item.id === purchasedAsset.id 
+              ? { ...item, purchased: true }
+              : item
+          )
+        );
+        
+        setPurchaseModalVisible(false);
+        
+        if (selectedAsset && selectedAsset.id === purchasedAsset.id) {
+          setSelectedAsset({ ...selectedAsset, purchased: true });
+        }
+        
+        loadAssets();
+        
+        message.info('You already purchased this asset');
+      } else {
+        message.error('Fialed to complete purchase, try again');
+      }
     }
   };
 
-  // Add a refresh function for earnings
   const handleRefreshEarnings = () => {
     if (userRole === 'admin') {
       loadCreatorEarnings();

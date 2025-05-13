@@ -1,12 +1,13 @@
 class Purchase < ApplicationRecord
+  self.table_name = "digital_assets.purchases"
+  
   belongs_to :user
   belongs_to :asset
 
   validates :amount, presence: true, numericality: { greater_than_or_equal_to: 0 }
   validate :user_cannot_purchase_own_asset
   validate :user_must_be_customer
-
-  after_create :update_creator_earnings
+  validate :no_duplicate_purchase
 
   private
 
@@ -24,8 +25,10 @@ class Purchase < ApplicationRecord
     end
   end
 
-  def update_creator_earnings
-    creator = asset.user
-    creator.increment!(:total_earnings, amount)
+  def no_duplicate_purchase
+    return unless user && asset
+    if Purchase.where(user_id: user_id, asset_id: asset_id).exists?
+      errors.add(:base, "You have already purchased this asset")
+    end
   end
 end
